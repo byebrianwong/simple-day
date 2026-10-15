@@ -1,0 +1,359 @@
+/* Display page styles. Sizes are in vmin so the layout scales to any screen.
+   Kept to features Safari 10 supports: flexbox without gap, custom
+   properties, no grid. Colours come from lib/theme.ts. */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'DejaVu Sans',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  cursor: none;
+}
+
+#app {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: row;
+  padding: 5vmin 5vmin 6vmin;
+}
+
+/* Clock block ------------------------------------------------------------ */
+
+.clock {
+  flex: none;
+  width: 45%;
+  padding-right: 4vmin;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.weekday {
+  font-size: 11vmin;
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.part {
+  font-size: 6.5vmin;
+  line-height: 1.2;
+  margin-top: 0.8vmin;
+  color: var(--muted);
+}
+
+.time {
+  font-size: 19vmin;
+  font-weight: 700;
+  line-height: 1;
+  margin: 3vmin 0 2.5vmin;
+  white-space: nowrap;
+  letter-spacing: -0.02em;
+}
+
+.period {
+  font-size: 0.4em;
+  font-weight: 600;
+  letter-spacing: 0;
+  margin-left: 0.25em;
+}
+
+.period-first .period {
+  margin-left: 0;
+  margin-right: 0.25em;
+}
+
+.date {
+  font-size: 6.5vmin;
+  line-height: 1.2;
+  color: var(--muted);
+}
+
+/* Next card ------------------------------------------------------------- */
+
+.main {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.card-wrap {
+  flex: none;
+  -webkit-transition: opacity 0.3s;
+  transition: opacity 0.3s;
+}
+
+.card {
+  padding: 2.6vmin 3.5vmin 2.8vmin;
+  border: 0.7vmin solid transparent;
+  border-radius: 2.5vmin;
+}
+
+.card .label {
+  font-size: 4.8vmin;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--muted);
+}
+
+.card .title {
+  font-size: 8.5vmin;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-top: 0.8vmin;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-wrap: break-word;
+}
+
+.card .timing {
+  font-size: 6.5vmin;
+  font-weight: 600;
+  line-height: 1.2;
+  margin-top: 1vmin;
+}
+
+/* The start time, after the timing text on the same line. */
+.card .detail {
+  font-size: 4.6vmin;
+  font-weight: 400;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.card .where,
+.card .note,
+.card .then {
+  font-size: 4.6vmin;
+  line-height: 1.3;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card .where {
+  margin-top: 1vmin;
+}
+
+.card .then {
+  margin-top: 1.5vmin;
+  font-weight: 700;
+}
+
+/* Strongest: an event in progress fills the card. */
+.state-now {
+  background: var(--now-bg);
+  color: var(--now-text);
+}
+
+.state-now .label,
+.state-now .detail,
+.state-now .where,
+.state-now .note,
+.state-now .then {
+  color: var(--now-muted);
+}
+
+/* Strong: a thick accent border and an accent label. */
+.state-soon {
+  border-color: var(--accent);
+}
+
+.state-soon .label {
+  color: var(--accent-text);
+}
+
+/* Medium: a quieter border. */
+.state-comingUp {
+  border-color: var(--line-strong);
+}
+
+/* Calm: no frame at all. */
+.state-later,
+.state-done {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.state-done .title {
+  color: var(--muted);
+  font-size: 7vmin;
+}
+
+/* Today list ------------------------------------------------------------ */
+
+.list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  margin-top: 2.5vmin;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  font-size: 4.4vmin;
+  line-height: 1.25;
+  padding: 0.9vmin 0;
+  border-top: 0.25vmin solid var(--line);
+  white-space: nowrap;
+}
+
+.row:first-child {
+  border-top-color: transparent;
+}
+
+.row .when {
+  flex: none;
+  min-width: 5.6em;
+  padding-right: 0.6em;
+  color: var(--muted);
+}
+
+.row .what {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.row .tag {
+  flex: none;
+  margin-left: 0.8em;
+  padding: 0 0.4em;
+  font-size: 0.87em;
+  font-weight: 700;
+  border-radius: 0.3em;
+}
+
+.row.allday .when {
+  font-weight: 700;
+}
+
+.row.past .when,
+.row.past .what,
+.row.past .tag,
+.row.summary .what {
+  color: var(--dim);
+  font-weight: 400;
+}
+
+.row.now .tag {
+  background: var(--now-bg);
+  color: var(--now-text);
+}
+
+.row.more .what {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* Coming days: a heading per day, events quieter than today's. */
+.row.dayhead {
+  border-top: 0.5vmin solid var(--line-strong);
+}
+
+.row.dayhead:first-child {
+  border-top-color: var(--line-strong);
+}
+
+.row.dayhead .what {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.row.ahead .what {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* Staleness line -------------------------------------------------------- */
+
+.stale {
+  position: absolute;
+  left: 5vmin;
+  bottom: 1.4vmin;
+  font-size: 3.6vmin;
+  line-height: 1.2;
+  color: var(--dim);
+}
+
+/* Narrower landscape screens such as an iPad (4:3) ----------------------- */
+
+@media (orientation: landscape) and (max-aspect-ratio: 3/2) {
+  .weekday {
+    font-size: 9.5vmin;
+  }
+  .time {
+    font-size: 16vmin;
+  }
+  .date {
+    font-size: 6vmin;
+  }
+}
+
+/* Portrait: clock on top, then the card, then the list ------------------- */
+
+@media (orientation: portrait) {
+  #app {
+    flex-direction: column;
+    padding-top: 4vmin;
+  }
+  .clock {
+    width: auto;
+    padding-right: 0;
+    justify-content: flex-start;
+  }
+  .weekday {
+    font-size: 9.5vmin;
+  }
+  .part {
+    font-size: 5.5vmin;
+    margin-top: 0.4vmin;
+  }
+  .time {
+    font-size: 16vmin;
+    margin: 1.5vmin 0 1vmin;
+  }
+  .date {
+    font-size: 5.5vmin;
+  }
+  .main {
+    margin-top: 3.5vmin;
+  }
+  .card .title {
+    font-size: 7.5vmin;
+  }
+}
