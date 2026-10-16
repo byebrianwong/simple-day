@@ -16,6 +16,7 @@ describe('readConfig', () => {
       nightEndMinute: 6 * 60,
       theme: 'dark',
       daysAhead: 2,
+      name: '',
     });
   });
 
@@ -30,8 +31,10 @@ describe('readConfig', () => {
       NIGHT_END: '7:00',
       THEME: 'light',
       DAYS_AHEAD: '3',
+      DISPLAY_NAME: '  Dorothy  ',
     });
     expect(c.daysAhead).toBe(3);
+    expect(c.name).toBe('Dorothy');
     expect(c.calendarUrls).toEqual(['https://a.test/x.ics', 'https://b.test/y.ics']);
     expect(c.locale).toBe('en-GB');
     expect([c.upcomingWindowMinutes, c.soonWindowMinutes]).toEqual([90, 15]);
@@ -41,7 +44,7 @@ describe('readConfig', () => {
 
   it('lists every problem at once without echoing secrets', () => {
     try {
-      readConfig({ DISPLAY_TOKEN: 'short', DISPLAY_TIMEZONE: 'Mars/Base', THEME: 'blue', NIGHT_START: '25:00', DAYS_AHEAD: '9' });
+      readConfig({ DISPLAY_TOKEN: 'short', DISPLAY_TIMEZONE: 'Mars/Base', THEME: 'blue', NIGHT_START: '25:00', DAYS_AHEAD: '9', DISPLAY_NAME: 'x'.repeat(41) });
       throw new Error('expected a ConfigError');
     } catch (err) {
       expect(err).toBeInstanceOf(ConfigError);
@@ -51,6 +54,7 @@ describe('readConfig', () => {
       expect(msg).toContain('THEME');
       expect(msg).toContain('NIGHT_START');
       expect(msg).toContain('DAYS_AHEAD');
+      expect(msg).toContain('DISPLAY_NAME');
       expect(msg).not.toContain('short');
     }
   });

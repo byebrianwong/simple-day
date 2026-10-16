@@ -24,6 +24,8 @@ describe.each(Object.keys(palettes))('%s palette', (name) => {
     ['nowText', 7, p.nowText, p.nowBg],
     ['nowMuted', 7, p.nowMuted, p.nowBg],
     ['dim', 4.5, p.dim, p.bg],
+    ['text on day band', 7, p.text, p.band],
+    ['muted on day band', 7, p.muted, p.band],
   ] as [string, number, string, string][])('%s is at least %d:1', (_label, min, fg, bg) => {
     expect(contrast(fg, bg)).toBeGreaterThanOrEqual(min);
   });

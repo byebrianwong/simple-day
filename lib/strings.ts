@@ -10,6 +10,14 @@ export const strings = {
     night: 'Night',
   },
 
+  // Shown in place of the part of day when DISPLAY_NAME is set.
+  greeting: {
+    morning: (name: string) => `Good Morning, ${name}`,
+    afternoon: (name: string) => `Good Afternoon, ${name}`,
+    evening: (name: string) => `Good Evening, ${name}`,
+    night: (name: string) => `Good Night, ${name}`,
+  },
+
   // Next card labels.
   now: 'Now',
   soon: 'Soon',

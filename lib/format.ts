@@ -6,7 +6,7 @@ import { minuteOfDayAt } from './tz';
 
 const cache: { [key: string]: Intl.DateTimeFormat } = {};
 
-function formatter(locale: string, tz: string, kind: 'time' | 'weekday' | 'date'): Intl.DateTimeFormat {
+function formatter(locale: string, tz: string, kind: 'time' | 'weekday' | 'date' | 'monthDay'): Intl.DateTimeFormat {
   const key = locale + '|' + tz + '|' + kind;
   let f = cache[key];
   if (!f) {
@@ -15,7 +15,9 @@ function formatter(locale: string, tz: string, kind: 'time' | 'weekday' | 'date'
         ? { timeZone: tz, hour: 'numeric', minute: '2-digit' }
         : kind === 'weekday'
           ? { timeZone: tz, weekday: 'long' }
-          : { timeZone: tz, year: 'numeric', month: 'long', day: 'numeric' };
+          : kind === 'monthDay'
+            ? { timeZone: tz, month: 'long', day: 'numeric' }
+            : { timeZone: tz, year: 'numeric', month: 'long', day: 'numeric' };
     f = new Intl.DateTimeFormat(locale, options);
     cache[key] = f;
   }
@@ -63,6 +65,11 @@ export function formatWeekday(ms: number, tz: string, locale: string): string {
 /** "October 14, 2026" */
 export function formatDate(ms: number, tz: string, locale: string): string {
   return formatter(locale, tz, 'date').format(new Date(ms));
+}
+
+/** "October 15" */
+export function formatMonthDay(ms: number, tz: string, locale: string): string {
+  return formatter(locale, tz, 'monthDay').format(new Date(ms));
 }
 
 export type PartOfDay = 'morning' | 'afternoon' | 'evening' | 'night';

@@ -13,6 +13,8 @@ export type Palette = {
   line: string;
   /** Border of the "Coming up" card. Not text. */
   lineStrong: string;
+  /** Background of each coming day's heading. Text and muted text sit on it. */
+  band: string;
   /** Border of the "Soon" card. Not text. */
   accent: string;
   /** The "Soon" label. */
@@ -31,6 +33,7 @@ export const palettes: { [name: string]: Palette } = {
     dim: '#8c877d',
     line: '#2e2c28',
     lineStrong: '#77726a',
+    band: '#26241f',
     accent: '#f5c451',
     accentText: '#f5c451',
     nowBg: '#f5c451',
@@ -45,6 +48,7 @@ export const palettes: { [name: string]: Palette } = {
     dim: '#7a766d',
     line: '#1c1b19',
     lineStrong: '#4f4c46',
+    band: '#121110',
     accent: '#b8924a',
     accentText: '#bf9a52',
     nowBg: '#b8924a',
@@ -58,6 +62,7 @@ export const palettes: { [name: string]: Palette } = {
     dim: '#69645b',
     line: '#d9d4c9',
     lineStrong: '#8f897d',
+    band: '#e2ddd2',
     accent: '#c9962c',
     accentText: '#5c3d00',
     nowBg: '#f5c451',
@@ -71,6 +76,7 @@ export const palettes: { [name: string]: Palette } = {
     dim: '#2e2b26',
     line: '#938e85',
     lineStrong: '#5c5850',
+    band: '#bdb8ad',
     accent: '#6b4a10',
     accentText: '#1a1100',
     nowBg: '#c9a043',
@@ -82,7 +88,7 @@ export const palettes: { [name: string]: Palette } = {
 function vars(p: Palette): string {
   return (
     `--bg:${p.bg};--text:${p.text};--muted:${p.muted};--dim:${p.dim};--line:${p.line};` +
-    `--line-strong:${p.lineStrong};--accent:${p.accent};--accent-text:${p.accentText};` +
+    `--line-strong:${p.lineStrong};--band:${p.band};--accent:${p.accent};--accent-text:${p.accentText};` +
     `--now-bg:${p.nowBg};--now-text:${p.nowText};--now-muted:${p.nowMuted};`
   );
 }

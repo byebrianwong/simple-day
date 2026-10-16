@@ -17,6 +17,8 @@ export type DisplayConfig = {
   theme: Theme;
   /** How many days after today to list under today's events. 0 turns it off. */
   daysAhead: number;
+  /** The viewer's name for the greeting ("Good Morning, Dorothy"). Empty: no greeting. */
+  name: string;
 };
 
 export type ServerConfig = DisplayConfig & {
@@ -28,6 +30,7 @@ export class ConfigError extends Error {}
 
 const MIN_TOKEN_LENGTH = 32;
 const MAX_DAYS_AHEAD = 6;
+const MAX_NAME_LENGTH = 40;
 
 type Env = { [key: string]: string | undefined };
 
@@ -113,6 +116,11 @@ export function readConfig(env: Env): ServerConfig {
     }
   }
 
+  const name = (env.DISPLAY_NAME || '').trim().replace(/\s+/g, ' ');
+  if (name.length > MAX_NAME_LENGTH) {
+    problems.push(`DISPLAY_NAME must be at most ${MAX_NAME_LENGTH} characters.`);
+  }
+
   const calendarUrls = parseUrls(env.CALENDAR_ICS_URLS, problems);
 
   if (problems.length) {
@@ -130,6 +138,7 @@ export function readConfig(env: Env): ServerConfig {
     nightEndMinute,
     theme,
     daysAhead,
+    name,
   };
 }
 
@@ -151,5 +160,6 @@ export function displayConfig(c: ServerConfig): DisplayConfig {
     nightEndMinute: c.nightEndMinute,
     theme: c.theme,
     daysAhead: c.daysAhead,
+    name: c.name,
   };
 }

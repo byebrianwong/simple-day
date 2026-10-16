@@ -6,6 +6,8 @@ beforeAll(() => {
   process.env.DISPLAY_TOKEN = TOKEN;
   process.env.DISPLAY_TIMEZONE = 'America/Los_Angeles';
   process.env.CALENDAR_ICS_URLS = 'https://calendar.example.test/secret-address/basic.ics';
+  // A name with HTML in it must not be able to end the script element early.
+  process.env.DISPLAY_NAME = 'Dorothy </script><b>';
 });
 
 async function get(token: string, query = '') {
@@ -30,5 +32,11 @@ describe('GET /d/[token]', () => {
     expect(html).toContain('"demo":true');
     expect(html).toContain('"now":"2026-10-14T15:40"');
     expect(html).not.toContain('secret-address');
+  });
+
+  it('embeds the name safely', async () => {
+    const html = await (await get(TOKEN)).text();
+    expect(html).toContain('"name":"Dorothy \\u003c/script>\\u003cb>"');
+    expect(html).not.toContain('Dorothy </script>');
   });
 });

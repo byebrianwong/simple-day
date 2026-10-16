@@ -3,7 +3,8 @@
 // server, in the browser, and in tests.
 
 import type { DisplayConfig } from './config';
-import { formatDate, formatTime, formatWeekday, isNight, partOfDay, relativeTiming, splitTime } from './format';
+import { formatDate, formatMonthDay, formatTime, formatWeekday, isNight, partOfDay, relativeTiming, splitTime } from './format';
+import { iconForTitle } from './event-icons';
 import { strings } from './strings';
 import { addDays, dateKeyAt, isoAt, minuteOfDayAt, startOfDayMs } from './tz';
 
@@ -121,6 +122,8 @@ export type Card = {
   state: CardState;
   label: string;
   title?: string;
+  /** Picture name from lib/event-icons.ts, if the title matched a rule. */
+  icon?: string;
   /** The main timing text: "in 20 minutes", "until 4:30 PM", "at 6:00 PM". */
   timing?: string;
   /** Smaller second timing line, such as "at 4:00 PM". */
@@ -133,12 +136,16 @@ export type Card = {
 
 export type RowStatus = 'past' | 'now' | 'upcoming';
 
-export type Row = { id: string; time: string; title: string; status: RowStatus };
+export type Row = { id: string; time: string; title: string; status: RowStatus; icon?: string };
+
+/** An all-day event in the "All day" row. */
+export type AllDayItem = { title: string; icon?: string };
 
 export type View = {
   /** Changes when the day changes. */
   dayKey: string;
   weekday: string;
+  /** "Afternoon", or "Good Afternoon, Dorothy" when a name is set. */
   partOfDay: string;
   clock: string;
   period: string;
@@ -146,9 +153,12 @@ export type View = {
   date: string;
   night: boolean;
   card: Card;
-  allDay: string[];
+  allDay: AllDayItem[];
   past: Row[];
-  /** The event in progress (if any) followed by the ones still to come. */
+  /**
+   * Events in progress and still to come, leaving out the ones the Next card
+   * already shows.
+   */
   current: Row[];
   /** The next `daysAhead` days that have events, starting tomorrow. */
   days: DayView[];
@@ -157,15 +167,21 @@ export type View = {
 export type DayView = {
   /** "Tomorrow, Thursday" or "Friday". */
   label: string;
-  allDay: string[];
-  /** Timed events that start on this day, as time and title. */
-  rows: { id: string; time: string; title: string }[];
+  /** "October 15". */
+  date: string;
+  allDay: AllDayItem[];
+  /** Timed events that start on this day. */
+  rows: { id: string; time: string; title: string; icon?: string }[];
 };
 
 type Timed = { e: CalendarEvent; startMs: number; endMs: number; status: RowStatus };
 
 function titleOf(e: CalendarEvent): string {
   return e.title || strings.untitled;
+}
+
+function allDayItem(e: CalendarEvent): AllDayItem {
+  return { title: titleOf(e), icon: iconForTitle(e.title) };
 }
 
 /** Text after "until", naming the day when the event ends on another day. */
@@ -188,22 +204,33 @@ function comingDays(events: CalendarEvent[], todayKey: string, c: DisplayConfig)
     const key = addDays(todayKey, d);
     const start = startOfDayMs(key, tz);
     const end = startOfDayMs(addDays(key, 1), tz);
-    const weekday = formatWeekday(start + 12 * 3600000, tz, c.locale);
-    const day: DayView = { label: d === 1 ? strings.tomorrow(weekday) : weekday, allDay: [], rows: [] };
+    const midday = start + 12 * 3600000;
+    const weekday = formatWeekday(midday, tz, c.locale);
+    const day: DayView = {
+      label: d === 1 ? strings.tomorrow(weekday) : weekday,
+      date: formatMonthDay(midday, tz, c.locale),
+      allDay: [],
+      rows: [],
+    };
     const timed: { e: CalendarEvent; startMs: number }[] = [];
     for (const e of events) {
       if (e.allDay) {
-        if (e.start === key) day.allDay.push(titleOf(e));
+        if (e.start === key) day.allDay.push(allDayItem(e));
         continue;
       }
       const startMs = Date.parse(e.start);
       if (isNaN(startMs) || startMs < start || startMs >= end) continue;
       // Starts at midnight and covers the whole day: reads like an all-day event.
-      if (startMs === start && Date.parse(e.end) >= end) day.allDay.push(titleOf(e));
+      if (startMs === start && Date.parse(e.end) >= end) day.allDay.push(allDayItem(e));
       else timed.push({ e, startMs });
     }
     timed.sort((a, b) => a.startMs - b.startMs);
-    day.rows = timed.map((t) => ({ id: t.e.id, time: formatTime(t.startMs, tz, c.locale), title: titleOf(t.e) }));
+    day.rows = timed.map((t) => ({
+      id: t.e.id,
+      time: formatTime(t.startMs, tz, c.locale),
+      title: titleOf(t.e),
+      icon: iconForTitle(t.e.title),
+    }));
     if (day.allDay.length || day.rows.length) days.push(day);
   }
   return days;
@@ -218,11 +245,11 @@ export function buildView(events: CalendarEvent[], nowMs: number, c: DisplayConf
   const dayStart = startOfDayMs(todayKey, tz);
   const dayEnd = startOfDayMs(addDays(todayKey, 1), tz);
 
-  const allDay: string[] = [];
+  const allDay: AllDayItem[] = [];
   const timed: Timed[] = [];
   for (const e of events) {
     if (e.allDay) {
-      if (e.start <= todayKey && e.end > todayKey) allDay.push(titleOf(e));
+      if (e.start <= todayKey && e.end > todayKey) allDay.push(allDayItem(e));
       continue;
     }
     const startMs = Date.parse(e.start);
@@ -234,7 +261,7 @@ export function buildView(events: CalendarEvent[], nowMs: number, c: DisplayConf
     // A timed event that covers the whole day reads like an all-day event,
     // and should not hold the Next card all day.
     if (startMs <= dayStart && endMs >= dayEnd) {
-      allDay.push(titleOf(e));
+      allDay.push(allDayItem(e));
       continue;
     }
     const status: RowStatus = endMs <= now ? 'past' : startMs <= now ? 'now' : 'upcoming';
@@ -247,6 +274,7 @@ export function buildView(events: CalendarEvent[], nowMs: number, c: DisplayConf
     time: t.startMs < dayStart ? untilText(t.endMs, todayKey, c) : formatTime(t.startMs, tz, c.locale),
     title: titleOf(t.e),
     status: t.status,
+    icon: iconForTitle(t.e.title),
   });
 
   // The most recently started event in progress is the most relevant one.
@@ -266,12 +294,17 @@ export function buildView(events: CalendarEvent[], nowMs: number, c: DisplayConf
   }
   const minutesUntil = (t: Timed) => Math.round((t.startMs - now) / 60000);
 
+  // Events shown in the Next card (its main event and its "Then:" event)
+  // are not repeated in the Today list.
+  const inCard: { [id: string]: true } = {};
   let card: Card;
   if (inProgress) {
+    inCard[inProgress.e.id] = true;
     card = {
       state: 'now',
       label: strings.now,
       title: titleOf(inProgress.e),
+      icon: iconForTitle(inProgress.e.title),
       timing: untilText(inProgress.endMs, todayKey, c),
       detail: inProgress.startMs >= dayStart ? strings.startedAt(formatTime(inProgress.startMs, tz, c.locale)) : undefined,
       location: inProgress.e.location,
@@ -279,11 +312,18 @@ export function buildView(events: CalendarEvent[], nowMs: number, c: DisplayConf
     };
     if (nextUp && minutesUntil(nextUp) <= c.soonWindowMinutes) {
       card.then = strings.then(titleOf(nextUp.e), relativeTiming(minutesUntil(nextUp)));
+      inCard[nextUp.e.id] = true;
     }
   } else if (nextUp) {
     const minutes = minutesUntil(nextUp);
     const at = strings.at(formatTime(nextUp.startMs, tz, c.locale));
-    const base = { title: titleOf(nextUp.e), location: nextUp.e.location, note: nextUp.e.note };
+    const base = {
+      title: titleOf(nextUp.e),
+      icon: iconForTitle(nextUp.e.title),
+      location: nextUp.e.location,
+      note: nextUp.e.note,
+    };
+    inCard[nextUp.e.id] = true;
     if (minutes <= c.soonWindowMinutes) {
       card = { state: 'soon', label: strings.soon, timing: relativeTiming(minutes), detail: at, ...base };
     } else if (minutes <= c.upcomingWindowMinutes) {
@@ -301,7 +341,9 @@ export function buildView(events: CalendarEvent[], nowMs: number, c: DisplayConf
     days: comingDays(events, todayKey, c),
     dayKey: todayKey,
     weekday: formatWeekday(now, tz, c.locale),
-    partOfDay: strings.partOfDay[partOfDay(minuteOfDay)],
+    partOfDay: c.name
+      ? strings.greeting[partOfDay(minuteOfDay)](c.name)
+      : strings.partOfDay[partOfDay(minuteOfDay)],
     clock: time.clock,
     period: time.period,
     periodFirst: time.periodFirst,
@@ -310,7 +352,7 @@ export function buildView(events: CalendarEvent[], nowMs: number, c: DisplayConf
     card,
     allDay,
     past: timed.filter((t) => t.status === 'past').map(rowOf),
-    current: timed.filter((t) => t.status !== 'past').map(rowOf),
+    current: timed.filter((t) => t.status !== 'past' && !inCard[t.e.id]).map(rowOf),
   };
 }
 
@@ -410,7 +452,23 @@ export function planFullList(
     }
   }
 
-  let room = capacity - rowsUsed(today, pastCount, hasAllDay);
+  let days = planDays(dayRows, capacity - rowsUsed(today, pastCount, hasAllDay));
+  // If a coming day is still cut short, the one row left for past events
+  // ("2 earlier", or a single past event) goes to it instead.
+  const pastRows = today.earlierLine ? 1 : pastCount - today.hiddenPast;
+  if (pastRows === 1 && shownRows(days) < totalRows(dayRows)) {
+    const withoutPast: ListPlan = { hiddenPast: pastCount, earlierLine: false, shownCurrent: today.shownCurrent, moreLater: 0 };
+    const more = planDays(dayRows, capacity - rowsUsed(withoutPast, pastCount, hasAllDay));
+    if (shownRows(more) > shownRows(days)) {
+      today = withoutPast;
+      days = more;
+    }
+  }
+  return { today, days };
+}
+
+/** Fits coming days into `room` rows: a heading and at least one more row each. */
+function planDays(dayRows: number[], room: number): DayPlan[] {
   const days: DayPlan[] = [];
   for (let i = 0; i < dayRows.length; i++) {
     const n = dayRows[i];
@@ -426,5 +484,17 @@ export function planFullList(
       room = 0;
     }
   }
-  return { today, days };
+  return days;
+}
+
+function shownRows(days: DayPlan[]): number {
+  let n = 0;
+  for (const d of days) n += d.shown;
+  return n;
+}
+
+function totalRows(dayRows: number[]): number {
+  let n = 0;
+  for (const r of dayRows) n += r;
+  return n;
 }

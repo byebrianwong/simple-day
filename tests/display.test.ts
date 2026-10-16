@@ -14,6 +14,7 @@ const config: DisplayConfig = {
   nightEndMinute: 6 * 60,
   theme: 'dark',
   daysAhead: 0,
+  name: '',
 };
 
 function timed(id: string, title: string, start: string, end: string, extra: Partial<CalendarEvent> = {}): CalendarEvent {
@@ -88,15 +89,23 @@ describe('Next card state', () => {
 
   it('handles an event that started yesterday', () => {
     const overnight = [timed('x', 'Overnight', '2026-10-13T23:00:00', '2026-10-14T01:00:00')];
-    const v = at('00:30', overnight);
-    expect(v.card).toMatchObject({ state: 'now', timing: 'until 1:00 AM', detail: undefined });
-    expect(v.current[0].time).toBe('until 1:00 AM');
+    expect(at('00:30', overnight).card).toMatchObject({ state: 'now', timing: 'until 1:00 AM', detail: undefined });
+  });
+
+  it('marks an overlapping event "Now" in the list, with "until" for one that started yesterday', () => {
+    const both = [
+      timed('x', 'Overnight', '2026-10-13T23:00:00', '2026-10-14T01:00:00'),
+      timed('y', 'Night nurse', '2026-10-14T00:15:00', '2026-10-14T00:45:00'),
+    ];
+    const v = at('00:30', both);
+    expect(v.card.title).toBe('Night nurse');
+    expect(v.current.map((r) => [r.time, r.title, r.status])).toEqual([['until 1:00 AM', 'Overnight', 'now']]);
   });
 
   it('treats a timed event covering the whole day as all-day', () => {
     const stay = [timed('x', 'Hospital stay', '2026-10-12T09:00:00', '2026-10-16T17:00:00')];
     const v = at('12:00', stay);
-    expect(v.allDay).toEqual(['Hospital stay']);
+    expect(v.allDay).toEqual([{ title: 'Hospital stay', icon: 'stethoscope' }]);
     expect(v.card.state).toBe('done');
   });
 
@@ -112,21 +121,34 @@ describe('Next card state', () => {
 });
 
 describe('Today list', () => {
-  it('splits past events from the current and upcoming ones', () => {
+  it('splits past events from the rest, leaving out what the Next card shows', () => {
+    // At 11:00 the card shows the doctor (Now) and "Then: Pills".
     const v = at('11:00');
-    expect(v.allDay).toEqual(['Trash day']);
+    expect(v.allDay).toEqual([{ title: 'Trash day', icon: 'trash-2' }]);
     expect(v.past.map((r) => [r.time, r.title, r.status])).toEqual([['8:00 AM', 'Breakfast', 'past']]);
     expect(v.current.map((r) => [r.time, r.title, r.status])).toEqual([
-      ['10:30 AM', 'Doctor: Dr. Lee', 'now'],
-      ['11:15 AM', 'Pills', 'upcoming'],
       ['12:30 PM', 'Lunch', 'upcoming'],
       ['6:00 PM', 'Dinner', 'upcoming'],
     ]);
   });
 
+  it.each([
+    ['07:40', 'Breakfast'],
+    ['14:00', 'Dinner'],
+    ['16:00', 'Dinner'],
+  ])('at %s does not repeat the card event (%s) in the list', (time, title) => {
+    const v = at(time);
+    expect(v.card.title).toBe(title);
+    expect(v.current.map((r) => r.title)).not.toContain(title);
+  });
+
+  it('keeps everything in the list once nothing is left for the card', () => {
+    expect(at('19:30').past.map((r) => r.title)).toEqual(['Breakfast', 'Doctor: Dr. Lee', 'Pills', 'Lunch', 'Dinner']);
+  });
+
   it('leaves out tomorrow', () => {
     const v = at('19:30');
-    expect(v.allDay).toEqual(['Trash day']);
+    expect(v.allDay.map((a) => a.title)).toEqual(['Trash day']);
     expect([...v.past, ...v.current].map((r) => r.title)).not.toContain('Tomorrow morning');
   });
 });
@@ -269,15 +291,20 @@ describe('coming days', () => {
     expect(v.days).toEqual([
       {
         label: 'Tomorrow, Thursday',
-        allDay: ['Tomorrow', 'Susan visiting'],
-        rows: [{ id: 't', time: '9:00 AM', title: 'Tomorrow morning' }],
+        date: 'October 15',
+        allDay: [
+          { title: 'Tomorrow', icon: undefined },
+          { title: 'Susan visiting', icon: 'users' },
+        ],
+        rows: [{ id: 't', time: '9:00 AM', title: 'Tomorrow morning', icon: undefined }],
       },
       {
         label: 'Friday',
+        date: 'October 16',
         allDay: [],
         rows: [
-          { id: 'hair', time: '9:30 AM', title: 'Haircut' },
-          { id: 'dentist', time: '2:00 PM', title: 'Dentist' },
+          { id: 'hair', time: '9:30 AM', title: 'Haircut', icon: 'scissors' },
+          { id: 'dentist', time: '2:00 PM', title: 'Dentist', icon: 'toothbrush' },
         ],
       },
     ]);
@@ -322,6 +349,19 @@ describe('planFullList (today first, then coming days)', () => {
     });
   });
 
+  it('gives the last past row to a coming day that would be cut short', () => {
+    // Evening, nothing left today: "2 earlier" + "Tomorrow" + "3 events" becomes
+    // "Tomorrow" + 1 event + "+2 more".
+    expect(planFullList(2, 0, false, [3, 1], 3)).toEqual({
+      today: { hiddenPast: 2, earlierLine: false, shownCurrent: 0, moreLater: 0 },
+      days: [{ index: 0, shown: 1, more: 2 }],
+    });
+  });
+
+  it('keeps the past row when coming days fit anyway', () => {
+    expect(planFullList(2, 0, false, [1], 3).today).toEqual({ hiddenPast: 2, earlierLine: true, shownCurrent: 0, moreLater: 0 });
+  });
+
   it('cuts a coming day short with a "+N more" line', () => {
     // 2 rows of today, then heading + 1 event + "+2 more".
     expect(planFullList(0, 2, false, [3, 1], 5).days).toEqual([{ index: 0, shown: 1, more: 2 }]);
@@ -333,5 +373,39 @@ describe('planFullList (today first, then coming days)', () => {
 
   it('leaves a day out when only its heading would fit', () => {
     expect(planFullList(0, 2, false, [3], 3).days).toEqual([]);
+  });
+});
+
+describe('greeting', () => {
+  const named = { ...config, name: 'Dorothy' };
+
+  it.each([
+    ['04:59', 'Good Night, Dorothy'],
+    ['05:00', 'Good Morning, Dorothy'],
+    ['11:59', 'Good Morning, Dorothy'],
+    ['12:00', 'Good Afternoon, Dorothy'],
+    ['16:59', 'Good Afternoon, Dorothy'],
+    ['17:00', 'Good Evening, Dorothy'],
+    ['20:59', 'Good Evening, Dorothy'],
+    ['21:00', 'Good Night, Dorothy'],
+  ])('at %s says "%s"', (time, text) => {
+    expect(buildView([], parseNowOverride('2026-10-14T' + time, LA)!, named).partOfDay).toBe(text);
+  });
+
+  it('shows just the part of day when no name is set', () => {
+    expect(at('15:42').partOfDay).toBe('Afternoon');
+  });
+});
+
+describe('event pictures in the view', () => {
+  it('puts the picture on the card and on list rows', () => {
+    const v = at('11:00');
+    expect(v.card).toMatchObject({ title: 'Doctor: Dr. Lee', icon: 'stethoscope' });
+    expect(v.past[0]).toMatchObject({ title: 'Breakfast', icon: 'utensils' });
+    expect(v.current.map((r) => r.icon)).toEqual(['utensils', 'utensils']);
+  });
+
+  it('leaves the picture out when no rule matches', () => {
+    expect(at('09:30', [timed('x', 'Something unusual', '2026-10-14T10:00:00', '2026-10-14T11:00:00')]).card.icon).toBeUndefined();
   });
 });

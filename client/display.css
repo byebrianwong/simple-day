@@ -65,6 +65,9 @@ body {
   line-height: 1.2;
   margin-top: 0.8vmin;
   color: var(--muted);
+  /* A greeting with a long name wraps instead of running into the card. */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .time {
@@ -171,6 +174,24 @@ body {
   font-weight: 700;
 }
 
+/* The event's picture, to the left of the card text. */
+.card.has-icon {
+  display: flex;
+  align-items: center;
+}
+
+.card-icon {
+  flex: none;
+  width: 13vmin;
+  height: 13vmin;
+  margin-right: 3.5vmin;
+}
+
+.card-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 /* Strongest: an event in progress fills the card. */
 .state-now {
   background: var(--now-bg);
@@ -241,6 +262,28 @@ body {
   color: var(--muted);
 }
 
+.row .icon {
+  flex: none;
+  width: 1.15em;
+  margin-right: 0.45em;
+  align-self: center;
+  line-height: 0;
+}
+
+.row-icon {
+  width: 1.15em;
+  height: 1.15em;
+}
+
+/* Pictures inside the "All day" row, one before each title. */
+.inline-icon {
+  display: inline-block;
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 0.45em;
+  vertical-align: -0.22em;
+}
+
 .row .what {
   flex: 1 1 auto;
   min-width: 0;
@@ -265,6 +308,7 @@ body {
 .row.past .when,
 .row.past .what,
 .row.past .tag,
+.row.past .icon,
 .row.summary .what {
   color: var(--dim);
   font-weight: 400;
@@ -280,13 +324,19 @@ body {
   font-weight: 400;
 }
 
-/* Coming days: a heading per day, events quieter than today's. */
+/* Coming days: each day starts with a shaded band holding its name and date,
+   and its events sit a little indented, in a quieter style than today's. */
 .row.dayhead {
-  border-top: 0.5vmin solid var(--line-strong);
+  margin-top: 1.6vmin;
+  padding: 0.8vmin 1.4vmin;
+  border-top: 0;
+  border-radius: 1vmin;
+  background: var(--band);
+  font-size: 4.6vmin;
 }
 
 .row.dayhead:first-child {
-  border-top-color: var(--line-strong);
+  margin-top: 0;
 }
 
 .row.dayhead .what {
@@ -294,7 +344,24 @@ body {
   color: var(--text);
 }
 
-.row.ahead .what {
+.row.dayhead .day-date {
+  flex: none;
+  margin-left: 1em;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.row.dayhead + .row {
+  border-top-color: transparent;
+}
+
+.row.ahead {
+  padding-left: 1.4vmin;
+  padding-right: 1.4vmin;
+}
+
+.row.ahead .what,
+.row.ahead .icon {
   font-weight: 400;
   color: var(--muted);
 }

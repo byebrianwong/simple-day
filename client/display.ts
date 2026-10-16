@@ -3,8 +3,9 @@
 // No framework: the page has three regions and changes once a minute.
 
 import type { DisplayConfig } from '../lib/config';
-import { buildView, planFullList, type CalendarEvent, type EventsResponse, type Row, type View } from '../lib/events';
+import { buildView, planFullList, type AllDayItem, type CalendarEvent, type EventsResponse, type Row, type View } from '../lib/events';
 import { formatTime } from '../lib/format';
+import { ICON_SHAPES } from '../lib/icon-shapes';
 import { CACHE_NAME, fetchAndSavePage } from '../lib/offline';
 import { strings } from '../lib/strings';
 import { dateKeyAt, minuteOfDayAt, parseNowOverride } from '../lib/tz';
@@ -27,6 +28,16 @@ function escapeHtml(s: string): string {
 
 function div(cls: string, text: string | undefined): string {
   return text ? '<div class="' + cls + '">' + escapeHtml(text) + '</div>' : '';
+}
+
+/** An inline SVG for a picture name from lib/event-icons.ts, or '' if none. */
+function iconSvg(name: string | undefined, cls: string): string {
+  const shape = name ? ICON_SHAPES[name] : undefined;
+  if (!shape) return '';
+  return (
+    '<svg class="' + cls + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + shape + '</svg>'
+  );
 }
 
 function isEventList(value: unknown): value is CalendarEvent[] {
@@ -58,8 +69,11 @@ function cardHtml(v: View): string {
   if (c.state === 'done') {
     return '<div class="card state-done">' + div('title', c.label) + '</div>';
   }
+  const icon = iconSvg(c.icon, 'card-icon');
   return (
-    '<div class="card state-' + c.state + '">' +
+    '<div class="card state-' + c.state + (icon ? ' has-icon' : '') + '">' +
+    icon +
+    '<div class="card-body">' +
     div('label', c.label) +
     div('title', c.title) +
     (c.timing
@@ -68,24 +82,41 @@ function cardHtml(v: View): string {
     div('where', c.location) +
     div('note', c.note) +
     div('then', c.then) +
-    '</div>'
+    '</div></div>'
   );
 }
 
-function rowHtml(cls: string, when: string, what: string, tag?: string): string {
+/**
+ * One list row: time, picture, title, and an optional tag. `whatHtml` is
+ * already escaped. Rows without a picture keep an empty picture column so
+ * titles line up.
+ */
+function rowHtml(cls: string, when: string, whatHtml: string, tag?: string, icon?: string): string {
   return (
     '<div class="row' + (cls ? ' ' + cls : '') + '">' +
     '<span class="when">' + escapeHtml(when) + '</span>' +
-    '<span class="what">' + escapeHtml(what) + '</span>' +
+    '<span class="icon">' + iconSvg(icon, 'row-icon') + '</span>' +
+    '<span class="what">' + whatHtml + '</span>' +
     (tag ? '<span class="tag">' + escapeHtml(tag) + '</span>' : '') +
     '</div>'
   );
 }
 
+/** The "All day" row: each title with its own picture in front. */
+function allDayHtml(cls: string, items: AllDayItem[]): string {
+  const what = items.map((i) => iconSvg(i.icon, 'inline-icon') + escapeHtml(i.title)).join(' · ');
+  return (
+    '<div class="row ' + cls + '">' +
+    '<span class="when">' + escapeHtml(strings.allDay) + '</span>' +
+    '<span class="what">' + what + '</span>' +
+    '</div>'
+  );
+}
+
 function eventRowHtml(r: Row): string {
-  if (r.status === 'past') return rowHtml('past', r.time, r.title, strings.earlier);
-  if (r.status === 'now') return rowHtml('now', r.time, r.title, strings.now);
-  return rowHtml('', r.time, r.title);
+  if (r.status === 'past') return rowHtml('past', r.time, escapeHtml(r.title), strings.earlier, r.icon);
+  if (r.status === 'now') return rowHtml('now', r.time, escapeHtml(r.title), strings.now, r.icon);
+  return rowHtml('', r.time, escapeHtml(r.title), undefined, r.icon);
 }
 
 function listHtml(v: View, capacity: number): string {
@@ -93,23 +124,28 @@ function listHtml(v: View, capacity: number): string {
   const plan = planFullList(v.past.length, v.current.length, v.allDay.length > 0, dayRows, capacity);
   const today = plan.today;
   let html = '';
-  if (v.allDay.length) html += rowHtml('allday', strings.allDay, v.allDay.join(' · '));
-  if (today.earlierLine) html += rowHtml('summary', '', strings.earlierCount(today.hiddenPast));
+  if (v.allDay.length) html += allDayHtml('allday', v.allDay);
+  if (today.earlierLine) html += rowHtml('summary', '', escapeHtml(strings.earlierCount(today.hiddenPast)));
   for (let i = today.hiddenPast; i < v.past.length; i++) html += eventRowHtml(v.past[i]);
   for (let i = 0; i < today.shownCurrent; i++) html += eventRowHtml(v.current[i]);
-  if (today.moreLater > 0) html += rowHtml('more', '', strings.moreLater(today.moreLater));
+  if (today.moreLater > 0) html += rowHtml('more', '', escapeHtml(strings.moreLater(today.moreLater)));
 
   // Coming days: a heading per day, then its events in a quieter style.
   for (let p = 0; p < plan.days.length; p++) {
     const dp = plan.days[p];
     const day = v.days[dp.index];
-    html += '<div class="row dayhead"><span class="what">' + escapeHtml(day.label) + '</span></div>';
+    html +=
+      '<div class="row dayhead"><span class="what">' + escapeHtml(day.label) + '</span>' +
+      '<span class="day-date">' + escapeHtml(day.date) + '</span></div>';
     const rows: string[] = [];
-    if (day.allDay.length) rows.push(rowHtml('ahead allday', strings.allDay, day.allDay.join(' · ')));
-    for (let i = 0; i < day.rows.length; i++) rows.push(rowHtml('ahead', day.rows[i].time, day.rows[i].title));
+    if (day.allDay.length) rows.push(allDayHtml('ahead allday', day.allDay));
+    for (let i = 0; i < day.rows.length; i++) {
+      const r = day.rows[i];
+      rows.push(rowHtml('ahead', r.time, escapeHtml(r.title), undefined, r.icon));
+    }
     for (let i = 0; i < dp.shown; i++) html += rows[i];
     if (dp.more > 0) {
-      html += rowHtml('more ahead', '', dp.shown > 0 ? strings.moreOnDay(dp.more) : strings.eventCount(dp.more));
+      html += rowHtml('more ahead', '', escapeHtml(dp.shown > 0 ? strings.moreOnDay(dp.more) : strings.eventCount(dp.more)));
     }
   }
   return html;
@@ -232,8 +268,14 @@ function start(): void {
     // Try everything first. If it does not fit, work out how many rows do.
     setHtml(listEl, listHtml(v, 1000));
     if (fits()) return;
-    const first = listEl.firstElementChild as HTMLElement | null;
-    const rowHeight = first ? first.offsetHeight : 1;
+    // Start from the shortest row (day headings are taller), then shrink
+    // until it fits.
+    let rowHeight = 0;
+    const children = listEl.children;
+    for (let i = 0; i < children.length; i++) {
+      const h = (children[i] as HTMLElement).offsetHeight;
+      if (h > 0 && (rowHeight === 0 || h < rowHeight)) rowHeight = h;
+    }
     let capacity = Math.max(1, Math.floor(listEl.clientHeight / Math.max(1, rowHeight)));
     for (let i = 0; i < 30; i++) {
       setHtml(listEl, listHtml(v, capacity));

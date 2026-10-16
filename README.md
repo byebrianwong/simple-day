@@ -25,7 +25,9 @@ the screen device.
 ## What the screen shows
 
 - **Clock block:** day of the week, part of day (Morning, Afternoon, Evening,
-  Night), the time, and the date.
+  Night), the time, and the date. If `DISPLAY_NAME` is set, the part of day
+  becomes a greeting: "Good Morning, Dorothy", "Good Afternoon, Dorothy",
+  "Good Evening, Dorothy", "Good Night, Dorothy".
 - **Next card:** the most relevant event, labelled by how close it is:
 
   | Label | When | Timing text |
@@ -38,16 +40,24 @@ the screen device.
 
   During an event, a line such as "Then: Lunch, in 20 minutes" appears if the
   next event starts within the Soon window.
-- **Today list:** all-day events in one row, then timed events in order.
-  Past events are dimmed and labelled "Earlier" (not "Done", since she may
-  not have gone). If the list does not fit, the earliest past events collapse
-  into one "2 earlier" line, and then later events into "+3 more later".
-- **Coming days:** under today's list, a heading per day ("Tomorrow,
-  Thursday", then "Friday") with that day's events in a quieter style. Each
-  event is listed under the day it starts. How many days is set by
+- **Today list:** all-day events in one row, then the rest of today's timed
+  events in order. Events already in the Next card (its main event and its
+  "Then:" event) are not repeated here. Past events are dimmed and labelled
+  "Earlier" (not "Done", since she may not have gone). If the list does not
+  fit, the earliest past events collapse into one "2 earlier" line, and then
+  later events into "+3 more later".
+- **Coming days:** under today's list, each day starts with a shaded band
+  holding its name and date ("Tomorrow, Thursday" and "October 15", then
+  "Friday" and "October 16"). Its events follow, slightly indented and in a
+  quieter style. Each event is listed under the day it starts. How many days is set by
   `DAYS_AHEAD` (default 2). Today always comes first: coming days only use the
   rows today's events leave free, and a day that does not fit ends with
   "+2 more", or is left out. Days with nothing on them are skipped.
+- **Pictures:** events get a simple drawn picture chosen from words in their
+  title: a plate for "Dinner", a stethoscope for "Doctor", a phone for
+  "Call", and about 30 more. It is large in the Next card and small next to
+  each event in the lists. Events whose titles match no rule get no picture.
+  See "Event pictures" below.
 
 At night (9 PM to 6 AM by default) all colours dim. If the calendar has not
 updated for 15 minutes, a small line at the bottom says "Calendar last updated
@@ -60,6 +70,8 @@ updated for 15 minutes, a small line at the bottom says "Calendar last updated
 - The first line of the Description appears on the Next card. Use it for one
   instruction, such as "Bring insurance card".
 - Use all-day events for whole-day reminders, such as "Trash day".
+- Use ordinary words for what the event is ("Dinner", "Doctor", "Call",
+  "Walk", "Haircut"). The screen picks the event's picture from them.
 
 Changes reach the screen within a few minutes, but see "How fast edits show
 up" below.
@@ -151,6 +163,7 @@ the server logs every problem at once and the display page returns 404.
 | `NIGHT_START` / `NIGHT_END` | `21:00` / `06:00` | no | Night mode hours, 24-hour clock. Set both the same to turn night mode off. |
 | `THEME` | `dark` | no | `dark` or `light`. Default `dark`. |
 | `DAYS_AHEAD` | `2` | no | How many days after today to list under today's events, 0 to 6. `0` turns the coming days off. Default 2. |
+| `DISPLAY_NAME` | `Dorothy` | no | Her name, for the greeting ("Good Morning, Dorothy"). Leave empty to show just "Morning". At most 40 characters. |
 
 All on-screen words live in [lib/strings.ts](lib/strings.ts). To translate the
 display, change that file and set `DISPLAY_LOCALE`.
@@ -292,6 +305,24 @@ all-day event, weekly repeats, a moved instance, a deleted instance, cancelled
 events, other time zones (including Outlook-style zone names), multi-day
 events, events crossing midnight, and the 2026-11-01 daylight saving change in
 Los Angeles.
+
+### Event pictures
+
+[lib/event-icons.ts](lib/event-icons.ts) holds the rules: a list of pictures,
+each with the words that choose it. The display checks an event's title
+against the rules from top to bottom and uses the first match, matching whole
+words and ignoring case. More specific rules come first, so "Eye doctor" gets
+glasses rather than a stethoscope, and "Pickup for Doctor" gets the
+stethoscope rather than the car.
+
+- **To add a word** to an existing picture, add it to that rule's list.
+- **To add a new picture,** pick one from [lucide.dev](https://lucide.dev),
+  add its name to `ICONS` in `scripts/update-icons.mjs`, run
+  `node scripts/update-icons.mjs`, and add a rule that uses it.
+
+The drawings come from [Lucide](https://lucide.dev) (ISC licence), copied into
+`lib/icon-shapes.ts` with the licence text. They are drawn in the text colour,
+so they dim at night with everything else.
 
 ## Status
 
